@@ -163,7 +163,7 @@ The system shall block any order that would raise a Trader's exposure above the 
 ### AC-001 (verifies FR-003)
 
 gherkin
-Feature: Display Risk Dashboard
+```Feature: Display Risk Dashboard
   Scenario: Trader reviews portfolio risk before a trade decision
     Given a Trader logs into the system
     When the risk dashboard loads
@@ -172,12 +172,12 @@ Feature: Display Risk Dashboard
     And the dashboard shall display asset concentration by sector
     And the dashboard shall load completely within 5 seconds
     And the dashboard shall refresh automatically every 60 seconds
-
+```
 
 ### AC-002 (verifies FR-004)
 
 gherkin
-Feature: Generate Risk Alert for Limit Violation
+```Feature: Generate Risk Alert for Limit Violation
   Scenario: Portfolio VaR exceeds the risk limit
     Given the firm has set a maximum portfolio VaR limit of $500,000
     And the portfolio VaR is calculated at $525,000
@@ -186,27 +186,29 @@ Feature: Generate Risk Alert for Limit Violation
     And the alert severity shall be set by the RiskPolicy for that limit
     And the system shall display the alert as a banner on the Dashboard
     And the system shall log the alert event in the audit trail
-
+```
 
 ### AC-003 (verifies FR-007)
 
 gherkin
-Feature: Validate Incoming Market Data
+```Feature: Validate Incoming Market Data
   Scenario: Market data record fails validation
     Given an incoming market data record that fails validation rules
     When the system ingests the record
     Then the system shall discard the record
     And the system shall log a failure message
-
+```
 
 
 ### AC-004 (verifies FR-002)
 
 gherkin
-Feature: Pre-Trade Credit Threshold Check
+```Feature: Pre-Trade Credit Threshold Check
   Scenario: Order would exceed a pre-set credit threshold
     Given a pre-set credit threshold of $1,000,000 for a Trader
     And the Trader's current exposure is $950,000
     When the Trader submits an order that would add $100,000 of exposure
     Then the system shall block the order before it is entered
-    And the system shall notify the Trader that the order was 
+    And the system shall notify the Trader that the order was blocked
+    And the system shall log the blocked order in the audit trail
+```
