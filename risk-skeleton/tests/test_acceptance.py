@@ -28,7 +28,7 @@ from app.pre_trade_check import Decision, OrderRequest, PreTradeCheck
 from app.risk_engine import RiskMetrics
 from tests.fakes import (
     T0, FakeAlertRepository, FakeAlertService, FakeAuditLog, FakeClock,
-    FakeHealth, FakeRiskEngine, FakeStore,
+    FakeHealth, FakeRiskEngine, FakeStore, fake_dashboard_api,
 )
 
 T1_AUTH = {"Authorization": "Bearer fake-token-T1"}
@@ -96,9 +96,11 @@ def assert_rejected(call):
 
 
 def route_client():
-    """App with a DashboardApi whose methods are the unimplemented skeleton."""
-    fields = {f: None for f in DashboardApi.__dataclass_fields__}
-    return TestClient(create_app(DashboardApi(**fields)), raise_server_exceptions=False)
+    """App with a DashboardApi whose methods are the unimplemented skeleton.
+
+    Collaborators are fakes (tests/fakes.py), so none is None.
+    """
+    return TestClient(create_app(fake_dashboard_api()), raise_server_exceptions=False)
 
 
 # ---------- AT-01 (AC-001): dashboard -----------------------------------
@@ -329,8 +331,7 @@ def test_AT06_request_without_token_is_rejected_with_no_data():
 def test_AT07_auditor_cannot_acknowledge_and_alert_stays_created():
     repo = FakeAlertRepository([make_alert(state=AlertState.CREATED, version=1)])
     service = AlertService(alerts=repo, audit_log=FakeAuditLog(), routing={}, now=FakeClock())
-    api = DashboardApi(**{f: None for f in DashboardApi.__dataclass_fields__})
-    api.alert_service = service
+    api = fake_dashboard_api(alert_service=service)
     auditor = Principal(user_id="AUD1", role=Role.AUDITOR)
     exc = assert_rejected(
         lambda: api.acknowledge_alert(auditor, "AL-1", AcknowledgeRequest(expected_version=1))

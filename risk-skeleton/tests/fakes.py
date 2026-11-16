@@ -59,6 +59,14 @@ class FakeStore:
     def __init__(self):
         self.market_data = []
         self.trades = {}
+        self.positions = []
+        self.latest = {}
+
+    def list_positions(self, portfolio_id):
+        return [p for p in self.positions if p.portfolio_id == portfolio_id]
+
+    def get_latest_market_data(self, asset_ids):
+        return {a: self.latest[a] for a in asset_ids if a in self.latest}
 
     def save_market_data(self, records):
         self.market_data.extend(records)
@@ -139,3 +147,107 @@ class FakeAlertRepository:
 
     def current(self, alert_id):
         return self._alerts[alert_id]
+
+
+# ---- Fakes for DashboardApi collaborators --------------------------------
+#
+# DashboardApi is the module under test in the route tests. Its collaborators
+# are fakes, so no collaborator is None. The fakes hold the fixture data for
+# portfolio P1 (test_plan.md F1) and record calls. They do not implement
+# behaviour, so the DashboardApi stubs still raise NotImplementedError.
+
+from app.access_control import AuthenticationFailed, AuthorizationDenied, Principal, Role  # noqa: E402
+from app.position_trade_store import MarketDataRecord, Position  # noqa: E402
+
+FAKE_TOKENS = {"Bearer fake-token-T1": Principal(user_id="T1", role=Role.TRADER)}
+
+
+class FakeAccessControl:
+    """Knows one test token (T1, Trader). Does not enforce roles on its own."""
+
+    def authenticate_request(self, authorization_header):
+        try:
+            return FAKE_TOKENS[authorization_header]
+        except (KeyError, TypeError):
+            raise AuthenticationFailed("missing or unknown token (fake)")
+
+    def authorize(self, principal, allowed_roles):
+        if principal.role not in allowed_roles:
+            raise AuthorizationDenied(principal.role.value)
+        return principal
+
+
+class FakeIngestion:
+    def ingest_batch(self, raw_records):
+        raise NotImplementedError("FakeIngestion has no behaviour")
+
+
+class FakeLimitMonitor:
+    def limit_statuses(self, metrics, policy):
+        raise NotImplementedError("FakeLimitMonitor has no behaviour")
+
+
+class FakeMitigation:
+    pass
+
+
+class FakeDigest:
+    pass
+
+
+class FakePreTrade:
+    pass
+
+
+class FakeArchiver:
+    pass
+
+
+class FakeLayouts:
+    """Dict-backed layout store, keyed by user ID."""
+
+    def __init__(self):
+        self.layouts = {}
+
+    def get(self, user_id):
+        return self.layouts.get(user_id)
+
+    def save(self, user_id, layout):
+        self.layouts[user_id] = dict(layout)
+
+
+def seeded_store():
+    """FakeStore with portfolio P1 (test_plan.md F1) and its market data."""
+    store = FakeStore()
+    store.positions = [
+        Position(portfolio_id="P1", asset_id="A", sector="Technology", quantity=Decimal("6000")),
+        Position(portfolio_id="P1", asset_id="B", sector="Energy", quantity=Decimal("4000")),
+    ]
+    store.latest = {
+        asset: MarketDataRecord(
+            asset_id=asset, price=Decimal("100"), currency="USD", sector=sector, region="US",
+            data_type="price", observed_at=T0, received_at=T0,
+        )
+        for asset, sector in (("A", "Technology"), ("B", "Energy"))
+    }
+    return store
+
+
+def fake_dashboard_api(alert_service=None):
+    """A DashboardApi whose collaborators are all fakes (none is None)."""
+    from app.dashboard_api import DashboardApi  # local import: avoids a load-order cycle
+    return DashboardApi(
+        access_control=FakeAccessControl(),
+        ingestion=FakeIngestion(),
+        store=seeded_store(),
+        risk_engine=FakeRiskEngine(),
+        limit_monitor=FakeLimitMonitor(),
+        alert_service=alert_service or FakeAlertService(),
+        mitigation=FakeMitigation(),
+        digest=FakeDigest(),
+        pre_trade=FakePreTrade(),
+        audit_log=FakeAuditLog(),
+        archiver=FakeArchiver(),
+        health=FakeHealth(),
+        layouts=FakeLayouts(),
+    )
