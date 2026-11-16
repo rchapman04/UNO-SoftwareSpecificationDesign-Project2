@@ -22,7 +22,6 @@ risk-skeleton/
     test_acceptance.py      Acceptance tests AT-01 to AT-10, AT-12
   spec.md / architecture.md / contracts.md / test_plan.md
   requirements.txt          Runtime dependencies
-  requirements-dev.txt      Runtime and test dependencies
   README.md
 ```
 
