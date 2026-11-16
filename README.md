@@ -65,16 +65,10 @@ Your prompt should now start with `(.venv)`. Keep this terminal open, or activat
 
 ## 3. Install the dependencies
 
-To run the server only:
+To run the server and tests:
 
 ```bash
 python -m pip install -r requirements.txt
-```
-
-To run the server and the tests (recommended):
-
-```bash
-python -m pip install -r requirements-dev.txt
 ```
 
 ## 4. Start the application
