@@ -62,17 +62,17 @@ Full per-test list, exact names:
 - **Skeleton:** route 1 `POST /auth/login` and route 6 (accepted path only). `AccessControl.authenticate_credentials`, `authenticate_request`, `authorize` (happy path). `PositionTradeStore.get_user_by_username`, `get_user`, `transaction`, `save_market_data`. `MarketDataIngestion.ingest_batch` and `validate_record` (accepted path). `HealthMonitor.record_activity`.
 - **Depends on:** none.
 - **Done when:** the proposed route-level test passes (it does not exist yet). No suite test is assigned.
-- **Status:** not started.
+- **Status:** completed.
 
 ### S2. Health, readiness, and pipeline status
 - **Goal:** Liveness, readiness, and pipeline status reflect the probes and recorded activity. Readiness returns 503 when a dependency is down.
 - **Spec sources:** FR-008, NFR-006.
 - **Criteria:** none.
 - **Tests:** none in the suite. NFR-006 states that health and readiness endpoint tests are required.
-- **Skeleton:** routes 3, 4, 5. `HealthMonitor.check_liveness`, `check_readiness`, `get_pipeline_status`. Also fix route 4 (see Skeleton issues 1).
+- **Skeleton:** routes 3, 4, 5. `HealthMonitor.check_liveness`, `check_readiness`, `get_pipeline_status`.
 - **Depends on:** S1 (route 5 needs `authorize`).
 - **Done when:** health tests pass. None assigned in the suite.
-- **Status:** not started.
+- **Status:** completed.
 
 ### S3. Authentication: missing token rejected
 - **Goal:** A request with no token gets 401 and no data. A valid token is then accepted.
@@ -83,8 +83,8 @@ Full per-test list, exact names:
   - `test_AT06_request_without_token_is_rejected_with_no_data`
 - **Skeleton:** `AccessControl.authenticate_request` (missing and invalid header paths). `AccessControl.assign_role` and route 2 `PUT /users/{user_id}/role` (Administrator only). `PositionTradeStore.set_user_role`. Route `require_principal` is already in `create_app`.
 - **Depends on:** S1.
-- **Done when:** both tests pass after Test issues 3 is resolved.
-- **Status:** blocked on test wiring.
+- **Done when:** both tests pass.
+- **Status:** completed.
 
 ### S4. Market data validation and rejected-record audit
 - **Goal:** Invalid records are discarded, a failure is logged, and the rejection is written to the Audit Log. Valid records in the same batch are stored.
@@ -96,7 +96,7 @@ Full per-test list, exact names:
   - `test_AT03_mixed_batch_stores_only_the_valid_record`
 - **Skeleton:** `MarketDataIngestion.validate_record` (full rules), `ingest_batch` (rejection path). `AuditLog.append`, `list_rejected_market_data`. Route 7 `GET /market-data/rejections`.
 - **Depends on:** S1. `validate_record` alone needs nothing else, so `test_AT03_validate_record_rejects_bad_price_and_accepts_control` can turn green first.
-- **Notes:** the rule is "price must be numeric", which the spec does not define (Design question 6, Test issues 4).
+- **Notes:** the rule is "price must be numeric"
 - **Done when:** the three AT03 tests pass.
 - **Status:** not started.
 
@@ -107,18 +107,17 @@ Full per-test list, exact names:
 - **Tests:** `test_AT05_reupload_updates_the_trade_and_does_not_duplicate_it`
 - **Skeleton:** `PositionTradeStore.upload_trade_csv`, `upsert_trades`, `list_trades`, `get_trade`. Route 8 `POST /trades/uploads` (store step only). 422 for `InvalidTradeFile`.
 - **Depends on:** S3.
-- **Notes:** the test uses `PositionTradeStore(database_url="sqlite:///:memory:")`. Architecture says PostgreSQL, and an in-memory SQLite database is not shared across connections (Test issues 6).
+- **Notes:** the test uses `PositionTradeStore(database_url="sqlite:///:memory:")`. Architecture says PostgreSQL, and an in-memory SQLite database.
 - **Done when:** the test passes against a store that persists between calls.
-- **Status:** blocked on Test issues 6.
+- **Status** not started.
 
 ### S6. Risk metrics and trader exposure
 - **Goal:** Compute portfolio value, exposure, historical-simulation VaR, sector concentration, and trader exposure. Reject VaR confidence below 95%.
 - **Spec sources:** FR-002, FR-005 (trade metrics), FR-010 (exposure input).
 - **Criteria:** none.
-- **Tests:** none in the suite. The 95% confidence limit (94.99% rejected) is in test_plan.md Section 2 but not in the suite (Test issues 2).
+- **Tests:** none in the suite. The 95% confidence limit (94.99% rejected) is in test_plan.md.
 - **Skeleton:** `RiskEngine.calculate_metrics`, `get_trade_metrics`, `get_trader_exposure`. `PositionTradeStore.list_trades_for_trader`. Routes 10 and 22.
 - **Depends on:** S5.
-- **Blocked:** the confidence and horizon values come from RiskPolicy, which has no owner (Design question 1).
 - **Status:** not started.
 
 ### S7. Dashboard view (AC-001)
@@ -130,9 +129,8 @@ Full per-test list, exact names:
   - `test_AT01_dashboard_loads_within_5_seconds`
 - **Skeleton:** route 11 `GET /dashboard`. `LimitMonitor.limit_statuses`, `get_active_policy`. `PositionTradeStore.list_positions`, `get_latest_market_data`. `RiskEngine.calculate_metrics`.
 - **Depends on:** S6, S3.
-- **Notes:** `get_active_policy` still raises because `policy_source` is `_unassigned_policy` (Design question 1). The fixture P1 has no VaR, so `within_limits = true` is not supported by the fixtures (Test issues 5). The timing test measures a stub request, not a page load (Test issues 7).
-- **Done when:** both tests pass after Test issues 3 and 5 are resolved.
-- **Status:** blocked.
+- **Done when:** both tests pass.
+- **Status:** not started.
 
 ### S8. Dashboard layout save and load
 - **Goal:** A user's layout is saved to their account and returned on load.
@@ -141,8 +139,7 @@ Full per-test list, exact names:
 - **Tests:** none in the suite.
 - **Skeleton:** routes 12 and 13. `DashboardApi.get_dashboard_layout`, `save_dashboard_layout`. Repository is `DashboardLayoutRepository` (defined in `dashboard_api.py`).
 - **Depends on:** S7.
-- **Blocked:** Design question 2 (no module owns the layout repository; `layouts=None` in `build_api`).
-- **Status:** blocked.
+- **Status:** not started.
 
 ### S9. Limit evaluation and alert creation (AC-002 part 1)
 - **Goal:** A breached limit produces a Breach with the policy severity and the excess. The VaR limit boundary is $500,000. Alert creation is timed from the breach.
@@ -156,7 +153,7 @@ Full per-test list, exact names:
   - `test_AT02_alert_created_within_60_seconds[61-False]`
 - **Skeleton:** `LimitMonitor.evaluate`, `evaluate_and_alert`. `AlertService.create_alert` (state Created, audit entry). Route 9 `POST /risk-assessments`. Route 16 `GET /alerts/{alert_id}`. Recalculation hook in route 8.
 - **Depends on:** S4 (audit). These tests use `FakeAlertService`, so they do not need S6 or S7 to run.
-- **Notes:** the latency start point is the test's fixed `T0`, not a breach event (Test issues 8). The severity and excess come from the policy the test supplies, so the policy owner question (Design question 1) does not block these tests.
+- **Notes:** the latency start point is the test's fixed `T0`,
 - **Done when:** the five tests pass.
 - **Status:** not started.
 
@@ -167,9 +164,8 @@ Full per-test list, exact names:
 - **Tests:** `test_AT02_banner_frame_is_emitted_for_the_alert`
 - **Skeleton:** `AlertService.open_alert_stream`. Route 15 `GET /alerts/stream`. The push step in `create_alert`.
 - **Depends on:** S9.
-- **Notes:** the test expects an existing alert to be sent when a viewer connects. Contract §1.8 says frames are sent when alerts are created or change (Test issues 10). The test does not check that the banner arrives before details (AC-002 C2). Neither is covered yet.
-- **Done when:** the test passes after Test issues 10 is decided.
-- **Status:** blocked on Test issues 10.
+- **Done when:** the test passes.
+- **Status:** not started.
 
 ### S11. Alert positions and full details
 - **Goal:** An alert returns the positions it affects and a breakdown of its risk.
@@ -187,7 +183,6 @@ Full per-test list, exact names:
 - **Tests:** `test_AT12_trader_list_excludes_policy_alert_and_risk_manager_sees_it`
 - **Skeleton:** `AlertService.list_alerts` (viewer and state filters). Route 14 `GET /alerts`.
 - **Depends on:** S9.
-- **Notes:** portfolio-level routing is open (Design question 7). This test uses policy and trade-level alerts only.
 - **Done when:** the test passes.
 - **Status:** not started.
 
@@ -204,18 +199,14 @@ Full per-test list, exact names:
   - `test_AT09_concurrent_acknowledgment_first_applied_second_rejected`
 - **Skeleton:** `AlertService.acknowledge_alert`. Route 19 `POST /alerts/{alert_id}/acknowledge` and `DashboardApi.acknowledge_alert`. `AlertVersionConflict` → 409.
 - **Depends on:** S9, S3.
-- **Notes:**
-  - `test_AT07` sets only `api.alert_service`. `DashboardApi.acknowledge_alert` must check roles through `access_control`, which is `None` in the test (Test issues 3).
-  - `test_AT08` uses `assert_rejected`, which accepts any exception (Test issues 4).
-  - Who may acknowledge is still open (G-11). Only the Auditor denial and the Trader acceptance are tested.
-- **Done when:** the three tests pass after Test issues 3 and 4 are resolved.
+- **Done when:** the three tests pass.
 - **Status:** blocked on test wiring and assertion strength.
 
 ### S14. Trade audit trail and audit immutability
 - **Goal:** Trade security information, risk metrics, and the audit history are returned to all five roles. Audit records cannot be edited.
 - **Spec sources:** FR-005, NFR-001.
 - **Criteria:** none.
-- **Tests:** none in the suite. EXTRA-07 (audit immutability) from test_plan.md is absent from the suite (Test issues 2).
+- **Tests:** none in the suite.
 - **Skeleton:** `AuditLog.get_trail`. Routes 21 and 23. The `AUDIT_RECORDS_ACCESSED` record.
 - **Depends on:** S5, S9, S4.
 - **Status:** not started.
@@ -227,7 +218,7 @@ Full per-test list, exact names:
 - **Tests:** none in the suite.
 - **Skeleton:** `MitigationTracker.create_plan`, `update_plan`, `list_plans_for_alert`, `get_plan_history`. Routes 25 to 28.
 - **Depends on:** S9, S14.
-- **Blocked in part:** `PlanStatus` values (Planned, In Progress, Completed, Cancelled) are chosen in code. The spec does not give them (Design question 10).
+- **Blocked in part:** `PlanStatus` values (Planned, In Progress, Completed, Cancelled) are chosen in code.
 - **Status:** not started.
 
 ### S16. Alert resolution with optional plan link
@@ -249,7 +240,6 @@ Full per-test list, exact names:
   - `test_AT04_inside_and_outside_credit_boundary[500.0001-block]`
 - **Skeleton:** `PreTradeCheck.check_order` (block path). `AlertService.send_notification`. Route 24 `POST /pre-trade-checks`. `credit_threshold_for` (source undefined).
 - **Depends on:** S6, S4. Tests use `FakeRiskEngine` and `FakeAlertService`.
-- **Notes:** `build_api` passes `credit_threshold_for=lambda trader_id: None`, so the real app blocks nothing until the policy owner is decided (Design question 1).
 - **Done when:** the three tests pass.
 - **Status:** not started.
 
@@ -260,19 +250,17 @@ Full per-test list, exact names:
 - **Tests:** `test_AT10_fail_open_when_risk_engine_down_and_control_blocked`
 - **Skeleton:** `PreTradeCheck.check_order` (fail-open path, writes `ORDER_FAILED_OPEN`). Management alert via `AlertService`.
 - **Depends on:** S17.
-- **Notes:** management recipients are undefined (Design question 8). The test checks only that some notification was sent, which the Trader alone would satisfy (Test issues 7).
-- **Done when:** the test passes after Test issues 7 is resolved.
-- **Status:** blocked on Test issues 7 and Design question 8.
+- **Done when:** the test passes.
+- **Status:** not started.
 
 ### S19. Archiver (FR-009)
 - **Goal:** Audit records older than 1 year move to WORM storage with 7-year retention. Nothing is deleted.
 - **Spec sources:** FR-009, NFR-001.
 - **Criteria:** none.
-- **Tests:** none in the suite. The retention and archive-after-1-year limits in test_plan.md Section 2 are absent (Test issues 2).
+- **Tests:** none in the suite.
 - **Skeleton:** `Archiver.run_archive`. `AuditLog.list_records_before`, `mark_archived`. Route 30 `POST /archive-runs`.
 - **Depends on:** S14.
-- **Blocked:** `BlobWriteFailed` is referenced by the contract but not defined (Design question 3).
-- **Status:** blocked.
+- **Status:** not started.
 
 ### S20. Monthly alert digest (FR-012)
 - **Goal:** Once a month, each recipient receives one digest of the alerts created in the previous month.
@@ -281,8 +269,7 @@ Full per-test list, exact names:
 - **Tests:** none in the suite.
 - **Skeleton:** `AlertDigest.build_digest`, `send_monthly_digest`. `AlertService.list_alerts_created_between`. Route 29 `POST /alert-digests`.
 - **Depends on:** S9, S12.
-- **Blocked:** `DeliveryFailed` is not defined. `delivery` and `recipients_for` are `None` in `build_api` (Design question 4).
-- **Status:** blocked.
+- **Status:** not started.
 
 ---
 
@@ -320,6 +307,3 @@ Full per-test list, exact names:
 - NFR-001 timestamps (server UTC on audit writes). No test.
 - NFR-002 encryption at rest and in transit. Infrastructure.
 - No suite test exists for: FR-002 VaR confidence limit (S6); alert severity values (S9); retention and archive limits (S19); EXTRA-07 audit immutability (S14); FR-008 and NFR-006 health tests (S2). These are gaps in the suite, not in the plan.
-
-
-Start S1 (thin path). The first suite test to turn green is `test_AT03_validate_record_rejects_bad_price_and_accepts_control`, which needs only `MarketDataIngestion.validate_record`. Open decisions before S1 is complete: the Risk Manager policy store (Design question 1) and the spec entries for AC-005 to AC-012 (Test issues 1).
