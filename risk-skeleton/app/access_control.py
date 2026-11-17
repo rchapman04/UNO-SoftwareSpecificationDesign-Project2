@@ -109,4 +109,5 @@ class AccessControl:
         return principal
 
     def assign_role(self, actor: Principal, user_id: str, role: Role) -> UserRecord:
-        raise NotImplementedError("AccessControl.assign_role is not implemented")
+        self.authorize(actor, frozenset({Role.ADMINISTRATOR}))
+        return self.store.set_user_role(user_id, role.value)

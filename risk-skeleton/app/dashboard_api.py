@@ -24,19 +24,27 @@ from fastapi.encoders import jsonable_encoder
 from fastapi.responses import JSONResponse, StreamingResponse
 from pydantic import BaseModel
 
-from app.access_control import AccessControl, Principal, Role, Session
+from app.access_control import (
+    AccessControl,
+    AuthenticationFailed,
+    AuthorizationDenied,
+    Principal,
+    Role,
+    Session,
+)
 from app.alert_digest import AlertDigest, DigestRun
-from app.alert_service import Alert, AlertService, AlertState
+from app.alert_service import Alert, AlertNotFound, AlertService, AlertState
 from app.archiver import ArchiveRun, Archiver
 from app.audit_log import AuditLog, AuditRecord
 from app.health_monitor import HealthMonitor, LivenessResult, PipelineStatus, ReadinessResult
 from app.limit_monitor import LimitMonitor
 from app.market_data_ingestion import IngestionResult, MarketDataIngestion
-from app.mitigation_tracker import MitigationPlan, MitigationTracker, PlanStatus
+from app.mitigation_tracker import MitigationPlan, MitigationTracker, PlanNotFound, PlanStatus
 from app.position_trade_store import (
     Position,
     PositionTradeStore,
     Trade,
+    TradeNotFound,
     UploadResult,
     UserNotFound,
     UserRecord,
@@ -145,7 +153,7 @@ class DashboardApi:
         return self.access_control.authenticate_request(authorization_header)
 
     def assign_role(self, principal: Principal, user_id: str, role: Role) -> UserRecord:
-        raise NotImplementedError("DashboardApi.assign_role is not implemented")
+        return self.access_control.assign_role(principal, user_id, role)
 
     # Health (FR-008, NFR-006)
     def get_liveness(self) -> LivenessResult:
@@ -331,6 +339,33 @@ def create_app(api: DashboardApi) -> FastAPI:
             status_code=501,
             content={"error": "not_implemented", "message": str(exc)},
         )
+
+    # contracts.md §3: AuthenticationFailed -> 401.
+    @app.exception_handler(AuthenticationFailed)
+    async def authentication_failed(_: Request, exc: AuthenticationFailed) -> JSONResponse:
+        return JSONResponse(
+            status_code=401,
+            content={"error": "authentication_failed", "message": str(exc)},
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+
+    # contracts.md §3: AuthorizationDenied -> 403.
+    @app.exception_handler(AuthorizationDenied)
+    async def authorization_denied(_: Request, exc: AuthorizationDenied) -> JSONResponse:
+        return JSONResponse(
+            status_code=403,
+            content={"error": "authorization_denied", "message": str(exc)},
+        )
+
+    # contracts.md §3: TradeNotFound, AlertNotFound, PlanNotFound, UserNotFound -> 404.
+    async def not_found(_: Request, exc: Exception) -> JSONResponse:
+        return JSONResponse(
+            status_code=404,
+            content={"error": "not_found", "message": str(exc)},
+        )
+
+    for not_found_error in (TradeNotFound, AlertNotFound, PlanNotFound, UserNotFound):
+        app.add_exception_handler(not_found_error, not_found)
 
     def require_principal(authorization: Optional[str] = Header(default=None)) -> Principal:
         return api.authenticate_request(authorization)

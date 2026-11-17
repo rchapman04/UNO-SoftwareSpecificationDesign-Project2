@@ -11,7 +11,7 @@ import hmac
 import os
 from collections.abc import Iterator, Sequence
 from contextlib import AbstractContextManager, contextmanager
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from datetime import datetime
 from decimal import Decimal
 
@@ -175,4 +175,7 @@ class PositionTradeStore:
             raise UserNotFound(user_id)
 
     def set_user_role(self, user_id: str, role: str) -> UserRecord:
-        raise NotImplementedError("PositionTradeStore.set_user_role is not implemented")
+        current = self.get_user(user_id)  # raises UserNotFound
+        updated = replace(current, role=role)
+        self._users[user_id] = updated
+        return updated
