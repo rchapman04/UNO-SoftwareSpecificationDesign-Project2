@@ -85,11 +85,4 @@ class HealthMonitor:
         return ReadinessResult(ready=ready, components=tuple(components), checked_at=checked_at)
 
     def get_pipeline_status(self) -> PipelineStatus:
-        # Component names are fixed: "market_data", "trade_upload", "risk_calculation" (decision 3A).
-        return PipelineStatus(
-            last_market_data_at=self._last_activity.get("market_data"),
-            last_trade_upload_at=self._last_activity.get("trade_upload"),
-            last_risk_calculation_at=self._last_activity.get("risk_calculation"),
-            activity_counts=dict(self._activity_counts),
-            components=self.check_readiness().components,
-        )
+        raise NotImplementedError("HealthMonitor.get_pipeline_status is not implemented")
