@@ -131,10 +131,10 @@ class DashboardApi:
 
     # Access control (FR-006)
     def login(self, body: LoginRequest) -> Session:
-        raise NotImplementedError("DashboardApi.login is not implemented")
+        return self.access_control.authenticate_credentials(body.username, body.password)
 
     def authenticate_request(self, authorization_header: Optional[str]) -> Principal:
-        raise NotImplementedError("DashboardApi.authenticate_request is not implemented")
+        return self.access_control.authenticate_request(authorization_header)
 
     def assign_role(self, principal: Principal, user_id: str, role: Role) -> UserRecord:
         raise NotImplementedError("DashboardApi.assign_role is not implemented")
@@ -153,7 +153,8 @@ class DashboardApi:
     def ingest_market_data(
         self, principal: Principal, batch: list[dict[str, Any]]
     ) -> IngestionResult:
-        raise NotImplementedError("DashboardApi.ingest_market_data is not implemented")
+        self.access_control.authorize(principal, frozenset({Role.ADMINISTRATOR}))
+        return self.ingestion.ingest_batch(batch)
 
     def list_rejected_market_data(
         self, principal: Principal, limit: int, after: Optional[datetime]

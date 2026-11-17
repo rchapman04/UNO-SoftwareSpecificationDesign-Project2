@@ -53,8 +53,13 @@ class HealthMonitor:
     probes: Mapping[str, Callable[[], bool]]  # dependency name -> reachability probe
     now: Callable[[], datetime]
 
+    def __post_init__(self) -> None:
+        self._activity_counts: dict[str, int] = {}
+        self._last_activity: dict[str, datetime] = {}
+
     def record_activity(self, component: str, count: int) -> None:
-        raise NotImplementedError("HealthMonitor.record_activity is not implemented")
+        self._activity_counts[component] = self._activity_counts.get(component, 0) + count
+        self._last_activity[component] = self.now()
 
     def check_liveness(self) -> LivenessResult:
         raise NotImplementedError("HealthMonitor.check_liveness is not implemented")
