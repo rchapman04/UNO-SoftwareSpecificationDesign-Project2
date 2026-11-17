@@ -20,6 +20,7 @@ from decimal import Decimal
 from typing import Any, Optional, Protocol
 
 from fastapi import Body, Depends, FastAPI, Header, Request
+from fastapi.encoders import jsonable_encoder
 from fastapi.responses import JSONResponse, StreamingResponse
 from pydantic import BaseModel
 
@@ -32,7 +33,14 @@ from app.health_monitor import HealthMonitor, LivenessResult, PipelineStatus, Re
 from app.limit_monitor import LimitMonitor
 from app.market_data_ingestion import IngestionResult, MarketDataIngestion
 from app.mitigation_tracker import MitigationPlan, MitigationTracker, PlanStatus
-from app.position_trade_store import Position, PositionTradeStore, Trade, UploadResult, UserRecord
+from app.position_trade_store import (
+    Position,
+    PositionTradeStore,
+    Trade,
+    UploadResult,
+    UserNotFound,
+    UserRecord,
+)
 from app.pre_trade_check import PreTradeCheck, PreTradeResult
 from app.risk_engine import RiskEngine, RiskMetrics, TradeRiskMetrics
 
@@ -131,29 +139,31 @@ class DashboardApi:
 
     # Access control (FR-006)
     def login(self, body: LoginRequest) -> Session:
-        raise NotImplementedError("DashboardApi.login is not implemented")
+        return self.access_control.authenticate_credentials(body.username, body.password)
 
     def authenticate_request(self, authorization_header: Optional[str]) -> Principal:
-        raise NotImplementedError("DashboardApi.authenticate_request is not implemented")
+        return self.access_control.authenticate_request(authorization_header)
 
     def assign_role(self, principal: Principal, user_id: str, role: Role) -> UserRecord:
         raise NotImplementedError("DashboardApi.assign_role is not implemented")
 
     # Health (FR-008, NFR-006)
     def get_liveness(self) -> LivenessResult:
-        raise NotImplementedError("DashboardApi.get_liveness is not implemented")
+        return self.health.check_liveness()
 
     def get_readiness(self) -> ReadinessResult:
-        raise NotImplementedError("DashboardApi.get_readiness is not implemented")
+        return self.health.check_readiness()
 
     def get_pipeline_status(self, principal: Principal) -> PipelineStatus:
-        raise NotImplementedError("DashboardApi.get_pipeline_status is not implemented")
+        self.access_control.authorize(principal, frozenset({Role.ADMINISTRATOR}))
+        return self.health.get_pipeline_status()
 
     # Market data and trades (FR-001, FR-007)
     def ingest_market_data(
         self, principal: Principal, batch: list[dict[str, Any]]
     ) -> IngestionResult:
-        raise NotImplementedError("DashboardApi.ingest_market_data is not implemented")
+        self.access_control.authorize(principal, frozenset({Role.ADMINISTRATOR}))
+        return self.ingestion.ingest_batch(batch)
 
     def list_rejected_market_data(
         self, principal: Principal, limit: int, after: Optional[datetime]
@@ -262,8 +272,17 @@ def build_api() -> DashboardApi:
     """
     now = _utc_now
     store = PositionTradeStore(database_url=DATABASE_URL)
+
+    def store_reachable() -> bool:
+        # Decision 1A: the store is the only probed dependency. A lookup that finds nothing
+        # still proves the store answered. StoreUnavailable propagates and marks it DOWN.
+        try:
+            store.get_user_by_username("")
+        except UserNotFound:
+            pass
+        return True
     audit = AuditLog(store=store, now=now)
-    health = HealthMonitor(probes={}, now=now)
+    health = HealthMonitor(probes={"store": store_reachable}, now=now)
     access = AccessControl(store=store, signing_key=JWT_SIGNING_KEY, now=now)
     ingestion = MarketDataIngestion(store=store, audit_log=audit, health=health, now=now)
     risk = RiskEngine(store=store, now=now)
@@ -325,7 +344,11 @@ def create_app(api: DashboardApi) -> FastAPI:
 
     @app.get("/health/ready")
     def health_ready() -> Any:
-        return api.get_readiness()
+        # 200 when every dependency is up, 503 otherwise (contracts.md §2, route 4).
+        result = api.get_readiness()
+        return JSONResponse(
+            content=jsonable_encoder(result), status_code=200 if result.ready else 503
+        )
 
     @app.get("/pipeline/status")
     def pipeline_status(principal: Principal = Auth) -> Any:
