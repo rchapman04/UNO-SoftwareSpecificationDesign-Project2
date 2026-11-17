@@ -62,10 +62,27 @@ class HealthMonitor:
         self._last_activity[component] = self.now()
 
     def check_liveness(self) -> LivenessResult:
-        raise NotImplementedError("HealthMonitor.check_liveness is not implemented")
+        # Does not call the probes (contracts.md §1.3).
+        return LivenessResult(alive=True, checked_at=self.now())
 
     def check_readiness(self) -> ReadinessResult:
-        raise NotImplementedError("HealthMonitor.check_readiness is not implemented")
+        checked_at = self.now()
+        components: list[ComponentHealth] = []
+        for name, probe in self.probes.items():
+            try:
+                reachable = bool(probe())
+                state = ComponentState.UP if reachable else ComponentState.DOWN
+                detail = "reachable" if reachable else "probe reported unreachable"
+            except Exception as exc:
+                # A probe error means the dependency is down. Only the exception type is
+                # reported: this endpoint has no authentication, so messages may hold internals.
+                state = ComponentState.DOWN
+                detail = f"probe failed ({type(exc).__name__})"
+            components.append(
+                ComponentHealth(name=name, state=state, detail=detail, checked_at=self.now())
+            )
+        ready = all(c.state is not ComponentState.DOWN for c in components)
+        return ReadinessResult(ready=ready, components=tuple(components), checked_at=checked_at)
 
     def get_pipeline_status(self) -> PipelineStatus:
         raise NotImplementedError("HealthMonitor.get_pipeline_status is not implemented")
