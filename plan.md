@@ -83,7 +83,6 @@ Full per-test list, exact names:
   - `test_AT06_request_without_token_is_rejected_with_no_data`
 - **Skeleton:** `AccessControl.authenticate_request` (missing and invalid header paths). `AccessControl.assign_role` and route 2 `PUT /users/{user_id}/role` (Administrator only). `PositionTradeStore.set_user_role`. Route `require_principal` is already in `create_app`.
 - **Depends on:** S1.
-- **Notes:** `test_AT06` repeats `test_AT01`'s request and assertions (Test issues 9). Both must pass here. The `route_client()` fixture builds `DashboardApi` with every collaborator set to `None`, so `authenticate_request` will raise `AttributeError` (500) rather than 401 once implemented unless the fixture is wired (Test issues 3).
 - **Done when:** both tests pass after Test issues 3 is resolved.
 - **Status:** blocked on test wiring.
 
